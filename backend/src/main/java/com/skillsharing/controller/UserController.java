@@ -476,4 +476,81 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
     
+    // Mark all notifications as read
+    @PostMapping("/notifications/mark-all-read")
+    public ResponseEntity<?> markAllNotificationsAsRead() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserEmail = authentication.getName();
+        
+        Optional<User> currentUserOpt = userRepository.findByEmail(currentUserEmail);
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        User currentUser = currentUserOpt.get();
+        
+        List<Notification> notifications = notificationRepository.findByUserIdAndReadOrderByCreatedAtDesc(currentUser.getId(), false);
+        for (Notification notification : notifications) {
+            notification.setRead(true);
+            notificationRepository.save(notification);
+        }
+        
+        return ResponseEntity.ok().build();
+    }
     
+    // Clear all notifications
+    @DeleteMapping("/notifications/clear-all")
+    public ResponseEntity<?> clearAllNotifications() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserEmail = authentication.getName();
+        
+        Optional<User> currentUserOpt = userRepository.findByEmail(currentUserEmail);
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        User currentUser = currentUserOpt.get();
+        
+        List<Notification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId());
+        notificationRepository.deleteAll(notifications);
+        
+        return ResponseEntity.ok().build();
+    }
+    
+    // Add this new endpoint to get a user by ID
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserSearchResultDTO> getUserById(@PathVariable String userId) {
+        logger.debug("Fetching user by ID: {}", userId);
+        
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserEmail = authentication.getName();
+        Optional<User> currentUserOpt = userRepository.findByEmail(currentUserEmail);
+        
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        User currentUser = currentUserOpt.get();
+        Optional<User> targetUserOpt = userRepository.findById(userId);
+        
+        if (targetUserOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        User targetUser = targetUserOpt.get();
+        boolean isFollowing = currentUser.getFollowing().contains(targetUser.getId());
+        
+        UserSearchResultDTO dto = UserSearchResultDTO.builder()
+            .id(targetUser.getId())
+            .username(targetUser.getUsername())
+            .firstName(targetUser.getFirstName())
+            .lastName(targetUser.getLastName())
+            .fullName(targetUser.getFullName())
+            .profilePicture(targetUser.getProfilePicture())
+            .bio(targetUser.getBio())
+            .isFollowing(isFollowing)
+            .build();
+            
+        return ResponseEntity.ok(dto);
+    }
+}
