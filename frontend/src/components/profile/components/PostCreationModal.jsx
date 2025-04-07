@@ -126,7 +126,7 @@ const PostCreationModal = ({
               >
                 {isSubmittingPost ? (
                   <div className="flex items-center">
-                    <div className="w-5 h-5 border-2 border-red border-t-transparent rounded-full animate-spin mr-2"></div>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                     Posting...
                   </div>
                 ) : 'Post'}
