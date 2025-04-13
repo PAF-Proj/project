@@ -104,4 +104,34 @@ public class LearningPlanService {
         getPlanById(planId);
         return learningStepRepository.findByLearningPlanId(planId);
     }
-}
+
+        /// /
+        public LearningPlan updatePlan(String planId, CreateLearningPlanRequest request) {
+            LearningPlan plan = getPlanById(planId);
+            plan.setTitle(request.getTitle().trim());
+            plan.setDescription(request.getDescription().trim());
+            return learningPlanRepository.save(plan);
+        }
+    
+        public void deletePlan(String planId) {
+            LearningPlan plan = getPlanById(planId);
+            learningPlanRepository.delete(plan);
+        }
+    
+        public LearningStep updateStep(String stepId, AddStepRequest request) {
+            LearningStep step = getStepById(stepId);
+            step.setTitle(request.getTitle().trim());
+            step.setContent(request.getContent().trim());
+            return learningStepRepository.save(step);
+        }
+        public void deleteStep(String stepId) {
+            LearningStep step = getStepById(stepId);
+            learningStepRepository.delete(step);
+        }
+    
+    
+    
+    
+    
+    
+    }
