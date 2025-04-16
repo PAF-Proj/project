@@ -63,17 +63,12 @@ public class LearningPlanController {
         return ResponseEntity.ok(progress);
     }
 
-
-
     @GetMapping("/{planId}/steps")
     public ResponseEntity<List<LearningStep>> getStepsByPlanId(@PathVariable String planId) {
         List<LearningStep> steps = learningPlanService.getStepsByPlanId(planId);
         return ResponseEntity.ok(steps);
     }
 
-
-
-    /// /
     @PutMapping("/{planId}")
     public ResponseEntity<LearningPlan> updatePlan(
             @PathVariable String planId,
@@ -96,15 +91,10 @@ public class LearningPlanController {
         return ResponseEntity.ok(updatedStep);
     }
 
-
     @DeleteMapping("/steps/{stepId}")
     public ResponseEntity<Void> deleteStep(@PathVariable String stepId) {
         learningPlanService.deleteStep(stepId);
         return ResponseEntity.noContent().build();
     }
-
-
-
-
 
 }

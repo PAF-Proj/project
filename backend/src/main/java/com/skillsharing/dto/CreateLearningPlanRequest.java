@@ -8,5 +8,5 @@ import lombok.Setter;
 public class CreateLearningPlanRequest {
     private String title;
     private String description;
-    private String userId; // Changed from Long to String
+    private String userId;
 }
