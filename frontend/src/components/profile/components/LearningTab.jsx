@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '../../common/Toast';
+import { API_BASE_URL } from '../../../config/apiConfig';
+import axios from 'axios';
 import { FiPlus } from 'react-icons/fi';
 
 const LearningTab = () => {
@@ -14,6 +16,53 @@ const LearningTab = () => {
   // Input validation constraints
   const TITLE_MAX_LENGTH = 100;
   const DESCRIPTION_MAX_LENGTH = 1000;
+
+  // Configure axios instance
+  const api = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 10000,
+  });
+
+  // Add auth token to requests
+  api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  // Fetch all plans with progress
+  const fetchPlans = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/plans/my-plans');
+      const plansWithProgress = await Promise.all(
+        response.data.map(async plan => {
+          try {
+            const progressResponse = await api.get(`/plans/${plan.id}/progress`);
+            return { ...plan, progress: progressResponse.data };
+          } catch (error) {
+            console.error(`Failed to fetch progress for plan ${plan.id}:`, error);
+            return { ...plan, progress: 0 };
+          }
+        })
+      );
+      setPlans(plansWithProgress);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch learning plans';
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial data load
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -77,6 +126,33 @@ const LearningTab = () => {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Plans List */}
+      {!isCreatingPlan && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {plans.map(plan => (
+            <div 
+              key={plan.id} 
+              className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+            >
+              <h3 className="text-lg font-semibold">{plan.title}</h3>
+              <p className="text-gray-600 mt-1 text-sm line-clamp-2">{plan.description}</p>
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Progress</span>
+                  <span>{plan.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full" 
+                    style={{ width: `${plan.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
