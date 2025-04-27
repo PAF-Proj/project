@@ -69,6 +69,28 @@ const CommentSection = ({
   };
 
   // Add this to determine if user can delete a comment
+  const canDeleteComment = (comment) => {
+    return (
+      currentUser &&
+      (currentUser.id === comment.userId || currentUser.id === post.authorId)
+    );
+  };
+
+  // Make sure we handle the case when onCommentDeleted is not provided
+  const handleDeleteComment = (commentId) => {
+    setCommentToDelete(commentId);
+    setShowConfirmDialog(true);
+  };
+
+  const confirmDeleteComment = () => {
+    if (typeof onCommentDeleted === "function" && commentToDelete) {
+      onCommentDeleted(post.id, commentToDelete);
+    } else {
+      console.warn("onCommentDeleted prop is not a function");
+    }
+    setShowConfirmDialog(false);
+    setCommentToDelete(null);
+  };
 
   return (
     <div className="mt-2">
