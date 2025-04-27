@@ -22,6 +22,54 @@ const CommentSection = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState(null);
 
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+
+    if (!newComment.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/posts/${post.id}/comment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newComment }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add comment");
+      }
+
+      const updatedPost = await response.json();
+      setNewComment("");
+      setShowComments(true);
+
+      if (onCommentAdded) {
+        onCommentAdded(updatedPost);
+      }
+
+      addToast("Comment added successfully!", "success");
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      addToast("Failed to add comment. Please try again.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUserClick = (userId) => {
+    navigate(`/profile/${userId}`);
+  };
+
+  const toggleComments = () => {
+    setShowComments(!showComments);
+  };
+
+  // Add this to determine if user can delete a comment
+
   return (
     <div className="mt-2">
       <div
