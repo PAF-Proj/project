@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../common/Toast';
 import { API_BASE_URL } from '../../../config/apiConfig';
 import axios from 'axios';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiX } from 'react-icons/fi';
 
 const LearningTab = () => {
   // State management
@@ -59,6 +59,46 @@ const LearningTab = () => {
     }
   };
 
+  // Handle plan creation
+  const handleCreatePlan = async () => {
+    if (!newPlan.title.trim()) {
+      setError('Plan title is required');
+      addToast('Plan title is required', 'error');
+      return;
+    }
+    if (newPlan.title.length > TITLE_MAX_LENGTH) {
+      setError(`Plan title cannot exceed ${TITLE_MAX_LENGTH} characters`);
+      addToast(`Plan title cannot exceed ${TITLE_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+    if (newPlan.description.length > DESCRIPTION_MAX_LENGTH) {
+      setError(`Plan description cannot exceed ${DESCRIPTION_MAX_LENGTH} characters`);
+      addToast(`Plan description cannot exceed ${DESCRIPTION_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await api.post('/plans', newPlan);
+      const progressResponse = await api.get(`/plans/${response.data.id}/progress`);
+      const newPlanData = { 
+        ...response.data, 
+        progress: progressResponse.data,
+        steps: []
+      };
+      setPlans(prev => [...prev, newPlanData]);
+      setNewPlan({ title: '', description: '' });
+      setIsCreatingPlan(false);
+      addToast('Learning plan created successfully!', 'success');
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to create plan';
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Initial data load
   useEffect(() => {
     fetchPlans();
@@ -98,6 +138,12 @@ const LearningTab = () => {
         <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Create New Plan</h2>
+            <button 
+              onClick={() => setIsCreatingPlan(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <FiX size={20} />
+            </button>
           </div>
           
           <div className="space-y-4">
@@ -124,6 +170,22 @@ const LearningTab = () => {
                 disabled={isLoading}
                 maxLength={DESCRIPTION_MAX_LENGTH}
               />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setIsCreatingPlan(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreatePlan}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                disabled={!newPlan.title.trim() || isLoading}
+              >
+                {isLoading ? 'Creating...' : 'Create Plan'}
+              </button>
             </div>
           </div>
         </div>
