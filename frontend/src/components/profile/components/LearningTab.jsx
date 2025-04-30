@@ -2,26 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../common/Toast';
 import { API_BASE_URL } from '../../../config/apiConfig';
 import axios from 'axios';
-import { FiPlus, FiX, FiEdit, FiTrash } from 'react-icons/fi';
+import { FiPlus, FiX, FiEdit, FiTrash, FiArrowLeft } from 'react-icons/fi';
 import ConfirmDialog from '../../common/ConfirmDialog';
 
 const LearningTab = () => {
   // State management
   const [plans, setPlans] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [isEditingPlan, setIsEditingPlan] = useState(false);
+  const [isAddingStep, setIsAddingStep] = useState(false);
+  const [isEditingStep, setIsEditingStep] = useState(false);
   const [newPlan, setNewPlan] = useState({ title: '', description: '' });
   const [editPlan, setEditPlan] = useState({ id: '', title: '', description: '' });
+  const [newStep, setNewStep] = useState({ title: '', content: '' });
+  const [editStep, setEditStep] = useState({ id: '', title: '', content: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSteps, setIsLoadingSteps] = useState(false);
   const [operationLoading, setOperationLoading] = useState({});
   const [error, setError] = useState(null);
   const [showDeletePlanConfirm, setShowDeletePlanConfirm] = useState(false);
+  const [showDeleteStepConfirm, setShowDeleteStepConfirm] = useState(false);
   const [planToDelete, setPlanToDelete] = useState(null);
+  const [stepToDelete, setStepToDelete] = useState(null);
   const { addToast } = useToast();
 
   // Input validation constraints
   const TITLE_MAX_LENGTH = 100;
   const DESCRIPTION_MAX_LENGTH = 1000;
+  const CONTENT_MAX_LENGTH = 1000;
 
   // Configure axios instance
   const api = axios.create({
@@ -62,6 +71,21 @@ const LearningTab = () => {
       addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch steps for a specific plan
+  const fetchPlanSteps = async (planId) => {
+    setIsLoadingSteps(true);
+    try {
+      const response = await api.get(`/plans/${planId}/steps`);
+      return response.data || [];
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch steps';
+      addToast(errorMessage, 'error');
+      throw err;
+    } finally {
+      setIsLoadingSteps(false);
     }
   };
 
@@ -152,6 +176,9 @@ const LearningTab = () => {
     try {
       await api.delete(`/plans/${planToDelete}`);
       setPlans(plans.filter(p => p.id !== planToDelete));
+      if (selectedPlan && selectedPlan.id === planToDelete) {
+        setSelectedPlan(null);
+      }
       addToast('Learning plan deleted successfully!', 'success');
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to delete plan';
@@ -163,6 +190,131 @@ const LearningTab = () => {
     }
   };
 
+  // Handle step addition
+  const handleAddStep = async () => {
+    if (!newStep.title.trim()) {
+      setError('Step title is required');
+      addToast('Step title is required', 'error');
+      return;
+    }
+    if (newStep.title.length > TITLE_MAX_LENGTH) {
+      setError(`Step title cannot exceed ${TITLE_MAX_LENGTH} characters`);
+      addToast(`Step title cannot exceed ${TITLE_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+    if (newStep.content.length > CONTENT_MAX_LENGTH) {
+      setError(`Step content cannot exceed ${CONTENT_MAX_LENGTH} characters`);
+      addToast(`Step content cannot exceed ${CONTENT_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+
+    setOperationLoading(prev => ({ ...prev, [selectedPlan.id]: true }));
+    try {
+      const response = await api.post(`/plans/${selectedPlan.id}/steps`, newStep);
+      const updatedPlan = {
+        ...selectedPlan,
+        steps: [...(selectedPlan.steps || []), response.data]
+      };
+      
+      const progressResponse = await api.get(`/plans/${selectedPlan.id}/progress`);
+      updatedPlan.progress = progressResponse.data;
+      
+      setSelectedPlan(updatedPlan);
+      setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      setNewStep({ title: '', content: '' });
+      setIsAddingStep(false);
+      addToast('Step added successfully!', 'success');
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to add step';
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [selectedPlan.id]: false }));
+    }
+  };
+
+  // Handle step update
+  const handleUpdateStep = async () => {
+    if (!editStep.title.trim()) {
+      setError('Step title is required');
+      addToast('Step title is required', 'error');
+      return;
+    }
+    if (editStep.title.length > TITLE_MAX_LENGTH) {
+      setError(`Step title cannot exceed ${TITLE_MAX_LENGTH} characters`);
+      addToast(`Step title cannot exceed ${TITLE_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+    if (editStep.content.length > CONTENT_MAX_LENGTH) {
+      setError(`Step content cannot exceed ${CONTENT_MAX_LENGTH} characters`);
+      addToast(`Step content cannot exceed ${CONTENT_MAX_LENGTH} characters`, 'error');
+      return;
+    }
+
+    setOperationLoading(prev => ({ ...prev, [editStep.id]: true }));
+    try {
+      const response = await api.put(`/plans/steps/${editStep.id}`, {
+        title: editStep.title,
+        content: editStep.content
+      });
+      const updatedStep = response.data;
+      const updatedSteps = selectedPlan.steps.map(step => 
+        step.id === updatedStep.id ? updatedStep : step
+      );
+      const updatedPlan = { ...selectedPlan, steps: updatedSteps };
+      
+      const progressResponse = await api.get(`/plans/${selectedPlan.id}/progress`);
+      updatedPlan.progress = progressResponse.data;
+      
+      setSelectedPlan(updatedPlan);
+      setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      setEditStep({ id: '', title: '', content: '' });
+      setIsEditingStep(false);
+      addToast('Step updated successfully!', 'success');
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to update step';
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [editStep.id]: false }));
+    }
+  };
+
+  // Handle step deletion
+  const handleDeleteStep = async () => {
+    setOperationLoading(prev => ({ ...prev, [stepToDelete]: true }));
+    try {
+      await api.delete(`/plans/steps/${stepToDelete}`);
+      const updatedSteps = selectedPlan.steps.filter(step => step.id !== stepToDelete);
+      const updatedPlan = { ...selectedPlan, steps: updatedSteps };
+      
+      const progressResponse = await api.get(`/plans/${selectedPlan.id}/progress`);
+      updatedPlan.progress = progressResponse.data;
+      
+      setSelectedPlan(updatedPlan);
+      setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      addToast('Step deleted successfully!', 'success');
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete step';
+      addToast(errorMessage, 'error');
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [stepToDelete]: false }));
+      setShowDeleteStepConfirm(false);
+      setStepToDelete(null);
+    }
+  };
+
+  // Handle plan selection
+  const handleSelectPlan = async (plan) => {
+    setSelectedPlan(plan);
+    try {
+      const steps = await fetchPlanSteps(plan.id);
+      setSelectedPlan(prev => ({ ...prev, steps }));
+    } catch (err) {
+      // Error already handled in fetchPlanSteps
+    }
+  };
+
   // Start editing plan
   const handleStartEditPlan = (plan) => {
     setEditPlan({
@@ -171,6 +323,16 @@ const LearningTab = () => {
       description: plan.description || ''
     });
     setIsEditingPlan(true);
+  };
+
+  // Start editing step
+  const handleStartEditStep = (step) => {
+    setEditStep({
+      id: step.id,
+      title: step.title,
+      content: step.content || ''
+    });
+    setIsEditingStep(true);
   };
 
   // Initial data load
@@ -324,25 +486,30 @@ const LearningTab = () => {
       )}
 
       {/* Plans List */}
-      {!isCreatingPlan && !isEditingPlan && (
+      {!isCreatingPlan && !isEditingPlan && !selectedPlan && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {plans.map(plan => (
             <div 
               key={plan.id} 
               className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative"
             >
-              <h3 className="text-lg font-semibold">{plan.title}</h3>
-              <p className="text-gray-600 mt-1 text-sm line-clamp-2">{plan.description}</p>
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Progress</span>
-                  <span>{plan.progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${plan.progress}%` }}
-                  ></div>
+              <div 
+                className="cursor-pointer"
+                onClick={() => handleSelectPlan(plan)}
+              >
+                <h3 className="text-lg font-semibold">{plan.title}</h3>
+                <p className="text-gray-600 mt-1 text-sm line-clamp-2">{plan.description}</p>
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Progress</span>
+                    <span>{plan.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full" 
+                      style={{ width: `${plan.progress}%` }}
+                    ></div>
+                  </div>
                 </div>
               </div>
               <div className="absolute top-4 right-4 flex space-x-2">
@@ -374,18 +541,19 @@ const LearningTab = () => {
         </div>
       )}
 
-      {/* Delete Plan Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={showDeletePlanConfirm}
-        onClose={() => setShowDeletePlanConfirm(false)}
-        onConfirm={handleDeletePlan}
-        title="Delete Learning Plan"
-        message="Are you sure you want to delete this learning plan? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
-    </div>
-  );
-};
-
-export default LearningTab;
+      {/* Plan Detail View */}
+      {selectedPlan && (
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="flex justify-between items-center mb-4">
+            <button 
+              onClick={() => setSelectedPlan(null)}
+              className="flex items-center text-gray-600 hover:text-gray-800"
+            >
+              <FiArrowLeft className="mr-1" />
+              Back to plans
+            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleStartEditPlan(selectedPlan)}
+                className="flex items-center px-3 py-1 bg-gray-100 text-gray-7
+```
