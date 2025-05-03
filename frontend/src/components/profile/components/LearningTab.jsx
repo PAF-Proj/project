@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../common/Toast';
 import { API_BASE_URL } from '../../../config/apiConfig';
 import axios from 'axios';
-import { FiPlus, FiX, FiEdit, FiTrash, FiArrowLeft } from 'react-icons/fi';
+import { FiPlus, FiArrowLeft, FiCheck, FiLoader, FiX, FiEdit, FiTrash } from 'react-icons/fi';
 import ConfirmDialog from '../../common/ConfirmDialog';
 
 const LearningTab = () => {
@@ -79,6 +79,7 @@ const LearningTab = () => {
     setIsLoadingSteps(true);
     try {
       const response = await api.get(`/plans/${planId}/steps`);
+      console.log(`Fetched steps for plan ${planId}:`, response.data); // Debug log
       return response.data || [];
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch steps';
@@ -88,6 +89,11 @@ const LearningTab = () => {
       setIsLoadingSteps(false);
     }
   };
+
+  // Initial data load
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   // Handle plan creation
   const handleCreatePlan = async () => {
@@ -158,6 +164,9 @@ const LearningTab = () => {
       updatedPlan.progress = progressResponse.data;
       
       setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      if (selectedPlan && selectedPlan.id === updatedPlan.id) {
+        setSelectedPlan(updatedPlan);
+      }
       setEditPlan({ id: '', title: '', description: '' });
       setIsEditingPlan(false);
       addToast('Learning plan updated successfully!', 'success');
@@ -304,6 +313,30 @@ const LearningTab = () => {
     }
   };
 
+  // Handle step status toggle
+  const handleToggleStep = async (stepId, isCompleted) => {
+    setOperationLoading(prev => ({ ...prev, [stepId]: true }));
+    try {
+      await api.patch(`/plans/steps/${stepId}`, { completed: isCompleted });
+      
+      const updatedSteps = selectedPlan.steps.map(step => 
+        step.id === stepId ? { ...step, completed: isCompleted } : step
+      );
+      const updatedPlan = { ...selectedPlan, steps: updatedSteps };
+      
+      const progressResponse = await api.get(`/plans/${selectedPlan.id}/progress`);
+      updatedPlan.progress = progressResponse.data;
+      
+      setSelectedPlan(updatedPlan);
+      setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to update step';
+      addToast(errorMessage, 'error');
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [stepId]: false }));
+    }
+  };
+
   // Handle plan selection
   const handleSelectPlan = async (plan) => {
     setSelectedPlan(plan);
@@ -335,11 +368,6 @@ const LearningTab = () => {
     setIsEditingStep(true);
   };
 
-  // Initial data load
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       {/* Header */}
@@ -365,7 +393,7 @@ const LearningTab = () => {
       {/* Loading State */}
       {isLoading && (
         <div className="flex justify-center items-center p-8">
-          <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+          <FiLoader className="animate-spin text-2xl text-blue-600" />
         </div>
       )}
 
@@ -497,8 +525,14 @@ const LearningTab = () => {
                 className="cursor-pointer"
                 onClick={() => handleSelectPlan(plan)}
               >
-                <h3 className="text-lg font-semibold">{plan.title}</h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-semibold">{plan.title}</h3>
+                  <span className="text-sm text-gray-500">
+                    {plan.steps?.length || 0} steps
+                  </span>
+                </div>
                 <p className="text-gray-600 mt-1 text-sm line-clamp-2">{plan.description}</p>
+                
                 <div className="mt-4">
                   <div className="flex justify-between text-sm mb-1">
                     <span>Progress</span>
@@ -534,7 +568,7 @@ const LearningTab = () => {
                 </button>
               </div>
               {operationLoading[plan.id] && (
-                <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full mt-2"></div>
+                <FiLoader className="animate-spin text-blue-600 mt-2" />
               )}
             </div>
           ))}
@@ -555,5 +589,261 @@ const LearningTab = () => {
             <div className="flex space-x-2">
               <button
                 onClick={() => handleStartEditPlan(selectedPlan)}
-                className="flex items-center px-3 py-1 bg-gray-100 text-gray-7
-```
+                className="flex items-center px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
+                disabled={operationLoading[selectedPlan.id]}
+              >
+                <FiEdit className="mr-1" />
+                Edit Plan
+              </button>
+              <button
+                onClick={() => {
+                  setPlanToDelete(selectedPlan.id);
+                  setShowDeletePlanConfirm(true);
+                }}
+                className="flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
+                disabled={operationLoading[selectedPlan.id]}
+              >
+                <FiTrash className="mr-1" />
+                Delete Plan
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold">{selectedPlan.title}</h2>
+            <p className="text-gray-600 mt-1">{selectedPlan.description}</p>
+            
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="font-medium">Progress</span>
+                <span>{selectedPlan.progress}% completed</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full" 
+                  style={{ width: `${selectedPlan.progress}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Step Form */}
+          {isAddingStep && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Add New Step</h3>
+                <button 
+                  onClick={() => setIsAddingStep(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Title*</label>
+                  <input
+                    type="text"
+                    placeholder="Step title"
+                    value={newStep.title}
+                    onChange={(e) => setNewStep({...newStep, title: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={operationLoading[selectedPlan.id]}
+                    maxLength={TITLE_MAX_LENGTH}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Content</label>
+                  <textarea
+                    placeholder="Step details"
+                    value={newStep.content}
+                    onChange={(e) => setNewStep({...newStep, content: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    rows={2}
+                    disabled={operationLoading[selectedPlan.id]}
+                    maxLength={CONTENT_MAX_LENGTH}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setIsAddingStep(false)}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm"
+                    disabled={operationLoading[selectedPlan.id]}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddStep}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50"
+                    disabled={!newStep.title.trim() || operationLoading[selectedPlan.id]}
+                  >
+                    {operationLoading[selectedPlan.id] ? 'Adding...' : 'Add Step'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Step Form */}
+          {isEditingStep && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Edit Step</h3>
+                <button 
+                  onClick={() => setIsEditingStep(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Title*</label>
+                  <input
+                    type="text"
+                    placeholder="Step title"
+                    value={editStep.title}
+                    onChange={(e) => setEditStep({...editStep, title: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={operationLoading[editStep.id]}
+                    maxLength={TITLE_MAX_LENGTH}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Content</label>
+                  <textarea
+                    placeholder="Step details"
+                    value={editStep.content}
+                    onChange={(e) => setEditStep({...editStep, content: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    rows={2}
+                    disabled={operationLoading[editStep.id]}
+                    maxLength={CONTENT_MAX_LENGTH}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setIsEditingStep(false)}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 text-sm"
+                    disabled={operationLoading[editStep.id]}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateStep}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50"
+                    disabled={!editStep.title.trim() || operationLoading[editStep.id]}
+                  >
+                    {operationLoading[editStep.id] ? 'Updating...' : 'Update Step'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Steps List */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-medium">Learning Steps</h3>
+              <button
+                onClick={() => setIsAddingStep(true)}
+                className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                disabled={operationLoading[selectedPlan.id]}
+              >
+                <FiPlus className="mr-1" />
+                Add Step
+              </button>
+            </div>
+            
+            {isLoadingSteps ? (
+              <div className="flex justify-center items-center p-4">
+                <FiLoader className="animate-spin text-blue-600" />
+              </div>
+            ) : selectedPlan.steps?.length > 0 ? (
+              <div className="space-y-2">
+                {selectedPlan.steps.map(step => (
+                  <div 
+                    key={step.id} 
+                    className="flex items-start p-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={step.completed}
+                      onChange={(e) => handleToggleStep(step.id, e.target.checked)}
+                      className="mt-1 mr-3"
+                      disabled={operationLoading[step.id]}
+                    />
+                    <div className="flex-1">
+                      <h4 className={`font-medium ${step.completed ? 'line-through text-gray-500' : ''}`}>
+                        {step.title}
+                      </h4>
+                      {step.content && (
+                        <p className={`text-sm ${step.completed ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {step.content}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex space-x-2 ml-2">
+                      <button
+                        onClick={() => handleStartEditStep(step)}
+                        className="text-gray-500 hover:text-blue-600"
+                        disabled={operationLoading[step.id]}
+                        title="Edit step"
+                      >
+                        <FiEdit size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStepToDelete(step.id);
+                          setShowDeleteStepConfirm(true);
+                        }}
+                        className="text-gray-500 hover:text-red-600"
+                        disabled={operationLoading[step.id]}
+                        title="Delete step"
+                      >
+                        <FiTrash size={16} />
+                      </button>
+                    </div>
+                    {operationLoading[step.id] && (
+                      <FiLoader className="animate-spin ml-2 text-blue-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                No steps added yet. Add your first step to get started!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Plan Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeletePlanConfirm}
+        onClose={() => setShowDeletePlanConfirm(false)}
+        onConfirm={handleDeletePlan}
+        title="Delete Learning Plan"
+        message="Are you sure you want to delete this learning plan? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
+      {/* Delete Step Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteStepConfirm}
+        onClose={() => setShowDeleteStepConfirm(false)}
+        onConfirm={handleDeleteStep}
+        title="Delete Step"
+        message="Are you sure you want to delete this step? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+    </div>
+  );
+};
+
+export default LearningTab;
