@@ -25,10 +25,10 @@ const ProfileHeader = ({
       
 
       {/* Profile Information Section */}
-      <div className="relative px-6 pb-6 bg-gray-200">
+      <div className="relative px-6 pb-2 bg-blue-100">
         {/* Profile Picture */}
-        <div className="absolute left-6 sm:left-8 z-20">
-          <div className="h-40 w-40 rounded-xl border-4 border-white shadow-xl overflow-hidden group relative">
+        <div className="absolute left-6 sm:left-8 top-2 sm:top-2 z-20">
+          <div className="h-32 w-32 rounded-full border-4 border-white shadow-xl overflow-hidden group relative transform transition-transform duration-300 hover:scale-105">
             <img
               className="h-full w-full object-cover"
               src={imagePreview || user.profilePicture || DefaultAvatar}
