@@ -74,7 +74,7 @@ The **SkillShare Platform** is a collaborative web-based application designed to
 - Loading indicators, error messages, and confirmation dialogs
 - Toast notifications and empty state visuals
 
-**Backend (Spring Boot):**
+**Backend :**
 - CRUD operations for plans and steps
 - Real-time progress tracking and updates
 - Authenticated user access using JWT
@@ -109,7 +109,7 @@ The **SkillShare Platform** is a collaborative web-based application designed to
 
 - **Frontend:** React.js, Tailwind CSS
 - **Backend:** Spring Boot, RESTful APIs
-- **Database:** MongoDB / PostgreSQL (depending on module)
+- **Database:** MongoDB
 - **Authentication:** OAuth 2.0, JWT
 - **Media Handling:** Cloud storage for images/videos
 
