@@ -7,11 +7,16 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
-@SpringBootApplication
+
 @EnableMongoAuditing
 @ComponentScan(basePackages = {"com.skillsharing"})
+@EnableMongoRepositories(basePackages = "com.skillsharing.repository") // Ensure only MongoDB repositories are enabled
+@SpringBootApplication(exclude = {
+    org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class
+})
 public class SkillSharingApplication {
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
     private final MongoTemplate mongoTemplate;
