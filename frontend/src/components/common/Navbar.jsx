@@ -407,7 +407,7 @@ const Navbar = ({ user }) => {
               className="text-ExtraDarkColor text-xl font-bold cursor-pointer mr-6"
               onClick={() => navigate('/dashboard')}
             >
-              SkillShare
+              SkillGrid
             </span>
             
             {/* Search Bar */}
