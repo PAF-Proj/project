@@ -47,24 +47,29 @@ const LearningTab = () => {
     return config;
   });
 
-  // Fetch all plans with progress
+  // Fetch all plans with progress and steps
   const fetchPlans = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await api.get('/plans/my-plans');
-      const plansWithProgress = await Promise.all(
+      const plansWithProgressAndSteps = await Promise.all(
         response.data.map(async plan => {
           try {
             const progressResponse = await api.get(`/plans/${plan.id}/progress`);
-            return { ...plan, progress: progressResponse.data };
+            const stepsResponse = await api.get(`/plans/${plan.id}/steps`);
+            return { 
+              ...plan, 
+              progress: progressResponse.data, 
+              steps: stepsResponse.data || [] 
+            };
           } catch (error) {
-            console.error(`Failed to fetch progress for plan ${plan.id}:`, error);
-            return { ...plan, progress: 0 };
+            console.error(`Failed to fetch data for plan ${plan.id}:`, error);
+            return { ...plan, progress: 0, steps: [] };
           }
         })
       );
-      setPlans(plansWithProgress);
+      setPlans(plansWithProgressAndSteps);
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch learning plans';
       setError(errorMessage);
@@ -79,7 +84,7 @@ const LearningTab = () => {
     setIsLoadingSteps(true);
     try {
       const response = await api.get(`/plans/${planId}/steps`);
-      console.log(`Fetched steps for plan ${planId}:`, response.data); // Debug log
+      console.log(`Fetched steps for plan ${planId}:`, response.data);
       return response.data || [];
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch steps';
@@ -161,7 +166,9 @@ const LearningTab = () => {
       });
       const updatedPlan = response.data;
       const progressResponse = await api.get(`/plans/${editPlan.id}/progress`);
+      const stepsResponse = await api.get(`/plans/${editPlan.id}/steps`);
       updatedPlan.progress = progressResponse.data;
+      updatedPlan.steps = stepsResponse.data || [];
       
       setPlans(plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
       if (selectedPlan && selectedPlan.id === updatedPlan.id) {
@@ -372,7 +379,7 @@ const LearningTab = () => {
     <div className="container mx-auto p-4 max-w-4xl">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Learning Plans</h1>
+        <h1 className="text-2xl font-bold text-gray-800">My Learning Plans</h1>
         <button
           onClick={() => setIsCreatingPlan(true)}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -477,7 +484,7 @@ const LearningTab = () => {
                 value={editPlan.title}
                 onChange={(e) => setEditPlan({...editPlan, title: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={operationLoading[editPlan.id]}
+                disabled={operationLoading [editPlan.id]}
                 maxLength={TITLE_MAX_LENGTH}
               />
             </div>
@@ -514,64 +521,75 @@ const LearningTab = () => {
       )}
 
       {/* Plans List */}
-      {!isCreatingPlan && !isEditingPlan && !selectedPlan && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {plans.map(plan => (
-            <div 
-              key={plan.id} 
-              className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative"
-            >
-              <div 
-                className="cursor-pointer"
-                onClick={() => handleSelectPlan(plan)}
-              >
-                <div className="flex justify-between items-start">
-                  <h3 className="text-lg font-semibold">{plan.title}</h3>
-                  <span className="text-sm text-gray-500">
-                    {plan.steps?.length || 0} steps
-                  </span>
-                </div>
-                <p className="text-gray-600 mt-1 text-sm line-clamp-2">{plan.description}</p>
-                
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Progress</span>
-                    <span>{plan.progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full" 
-                      style={{ width: `${plan.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute top-4 right-4 flex space-x-2">
-                <button
-                  onClick={() => handleStartEditPlan(plan)}
-                  className="text-gray-500 hover:text-blue-600"
-                  disabled={operationLoading[plan.id]}
-                  title="Edit plan"
-                >
-                  <FiEdit size={16} />
-                </button>
-                <button
-                  onClick={() => {
-                    setPlanToDelete(plan.id);
-                    setShowDeletePlanConfirm(true);
-                  }}
-                  className="text-gray-500 hover:text-red-600"
-                  disabled={operationLoading[plan.id]}
-                  title="Delete plan"
-                >
-                  <FiTrash size={16} />
-                </button>
-              </div>
-              {operationLoading[plan.id] && (
-                <FiLoader className="animate-spin text-blue-600 mt-2" />
-              )}
+      {!isCreatingPlan && !isEditingPlan && !selectedPlan && !isLoading && (
+        <div className="mt-4">
+          {plans.length === 0 ? (
+            <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-500">
+              <p className="text-lg">No learning plans yet.</p>
+              <p className="mt-2">Create your first plan to get started!</p>
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {plans.map(plan => (
+                <div 
+                  key={plan.id} 
+                  className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                >
+                  <div 
+                    className="cursor-pointer"
+                    onClick={() => handleSelectPlan(plan)}
+                  >
+                    <h3 className="text-lg font-semibold truncate mb-1">{plan.title}</h3>
+                    <div className="text-sm text-gray-500 mb-2">
+                      {plan.steps.length} steps
+                    </div>
+                    <p className="text-gray-600 text-sm line-clamp-2 mb-3">{plan.description}</p>
+                    
+                    <div className="mt-2">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Progress</span>
+                        <span>{plan.progress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full" 
+                          style={{ width: `${plan.progress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2 mt-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartEditPlan(plan);
+                      }}
+                      className="text-gray-500 hover:text-blue-600"
+                      disabled={operationLoading[plan.id]}
+                      title="Edit plan"
+                    >
+                      <FiEdit size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlanToDelete(plan.id);
+                        setShowDeletePlanConfirm(true);
+                      }}
+                      className="text-gray-500 hover:text-red-600"
+                      disabled={operationLoading[plan.id]}
+                      title="Delete plan"
+                    >
+                      <FiTrash size={16} />
+                    </button>
+                  </div>
+                  {operationLoading[plan.id] && (
+                    <FiLoader className="animate-spin text-blue-600 mt-2" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
